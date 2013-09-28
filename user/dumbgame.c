@@ -34,19 +34,18 @@
     1) You have a limited send-size, it's around 512 bytes.  Split up your commands among multiple packets.
 	2) Do not send when receiving.  Add extra flags to the player structure to send when it's time to send.
 */
+#include "mem.h"
+#include "c_types.h"
+#include "user_interface.h"
+#include "ets_sys.h"
+
+#include "osapi.h"
+#include "espconn.h"
+#include "gpio.h"
 
 #include "dumbcraft.h"
 #include "dumbutils.h"
 #include <string.h>
-
-uint8_t regaddr_set;
-uint8_t regval_set;
-
-volatile uint8_t regaddr_get;
-volatile uint8_t regval_get;
-
-uint8_t hasset_value;
-uint8_t latch_setting_value;
 
 uint8_t didflip = 1;
 uint8_t flipx, flipy, flipz;
@@ -56,10 +55,13 @@ void InitDumbgame()
 	//no code.
 }
 
+char gameboard[8*8];
+
 void DoCustomPreloadStep( )
 {
 	struct Player * p = &Players[playerid];
 
+	/*
 //	printf( "Custom preload.\n" );
 	SblockInternal( 16, 64, 16, 89, 0 );
 
@@ -72,9 +74,9 @@ void DoCustomPreloadStep( )
 	StartSend();
 	SignTextUp( 3, 64, 1, "Latch", "<><" );
 
-
+*/
 	p->custom_preload_step = 0;
-
+	memset( gameboard, 0xff, sizeof( gameboard ) );
 
 	//actually spawns
 	p->x = (1<<FIXEDPOINT)/2;
@@ -128,11 +130,32 @@ void GameTick()
 	}
 }
 
+void flipcell( int x, int z )
+{
+	if( x >= 0 && x < 8 && z >= 0 && z < 8 )
+	{
+		gameboard[x+z*8] ^= 0xff;
+	}
+}
+
 void PlayerClick( uint8_t x, uint8_t y, uint8_t z, uint8_t dir )
 {
 	struct Player * p = &Players[playerid];
+	
+	
+	int lx = x - 3;
+	int lz = z - 3;
+	if( lx >= 0 && lx < 8 && lz >= 0 && lz < 8 )
+	{
+		didflip = 2;
+		flipcell( lx - 1, lz );
+		flipcell( lx + 1, lz );
+		flipcell( lx, lz - 1 );
+		flipcell( lx, lz + 1 );
+		flipcell( lx, lz );
+	}
 //printf( "PC: %d %d %d %d\n", playerid, x, y, z );
-
+/*
 	if( z == 2 && x == 4 )
 	{
 #ifdef __AVR__
@@ -166,6 +189,7 @@ void PlayerClick( uint8_t x, uint8_t y, uint8_t z, uint8_t dir )
 		flipy = y;
 		flipz = z;
 	}
+	*/
 }
 
 void PlayerUpdate( )
@@ -173,17 +197,36 @@ void PlayerUpdate( )
 	uint8_t i;
 	struct Player * p = &Players[playerid];
 
-	if( latch_setting_value )
+	int lx, lz;
+	lz = p->update_number & 7;
+	for( lx = 0; lx < 8; lx++ )
 	{
-#ifdef __AVR__
-		uint8_t * t = (uint8_t*)(intptr_t)(regaddr_set + 0x20);
-		*t = regval_set;
-#endif
+		if( gameboard[lx+lz*8] )
+		{
+			SblockInternal( lx+3, 64, lz+3, 35, 0 );
+		}
+		else
+		{
+			SblockInternal( lx+3, 64, lz+3, 35, 15 );
+		}
 	}
-	if( hasset_value )
+	
+	int offatall = 0;
+	for( i = 0; i < sizeof( gameboard ); i++ )
 	{
-		hasset_value--;
+		if( !gameboard[i] ) { offatall = 1; break; }
 	}
+	
+	if( offatall )
+	{
+		GPIO_OUTPUT_SET(GPIO_ID_PIN(0), 0);
+	}
+	else
+	{
+		GPIO_OUTPUT_SET(GPIO_ID_PIN(0), 1);
+	}
+	
+	/*
 	SblockInternal( 4, 64, 2, 69, hasset_value?6:14 );
 	SblockInternal( 4, 64, 1, 69, latch_setting_value?6:14 );
 
@@ -232,6 +275,7 @@ void PlayerUpdate( )
 	default:
 		break;
 	}
+	*/
 }
 
 

@@ -7,6 +7,7 @@
 #include "espconn.h"
 #include "mystuff.h"
 #include "dumbcraft.h"
+#include "gpio.h"
 
 #define PORT 25565
 #define SERVER_TIMEOUT 1000
@@ -17,6 +18,9 @@
 #define at_procTaskPrio        0
 #define at_procTaskQueueLen    1
 
+
+#define GPIO_OUTPUT_SET(gpio_no, bit_value) \
+	gpio_output_set(bit_value<<gpio_no, ((~bit_value)&0x01)<<gpio_no, 1<<gpio_no,0)
 
 static struct espconn *pTcpServer;
 
@@ -197,7 +201,7 @@ at_tcpclient_sent_cb(void *arg)
 
 	conn->cansend = 1;
 
-	uart0_sendStr("\r\nSEND OK\r\n");
+//	uart0_sendStr("\r\nSEND OK\r\n");
 }
 
 
@@ -236,16 +240,21 @@ at_tcpserver_listen(void *arg)
 static void ICACHE_FLASH_ATTR
 at_procTask(os_event_t *events)
 {
+	static int last_value = 0;
 	static int updates_without_tick = 0;
-//	uart0_sendStr("ATPRoc");
+
 	system_os_post(at_procTaskPrio, 0, 0 );
 	if( events->sig == 0 && events->par == 0 )
 	{
 		//Idle Event.
+		//This function is called ~10000x/sec.
+		
+		printf( "." );
+		
 		if( connections[0].pespconn && connections[0].cansend )
 		{
 			UpdateServer();
-			if( updates_without_tick++ > 100 ) 
+			if( updates_without_tick++ > 500 ) 
 			{
 				TickServer();
 			}
@@ -262,6 +271,7 @@ void at_recvTask()
 
 void user_init(void)
 {
+	//gpio_init();
 	uart_init(BIT_RATE_115200, BIT_RATE_115200);
 	int at_wifiMode = wifi_get_opmode();
 
