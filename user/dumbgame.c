@@ -54,8 +54,11 @@ void InitDumbgame()
 {
 	//no code.
 }
+#define DOGAME
 
+#ifdef DOGAME
 char gameboard[8*8];
+#endif
 
 void DoCustomPreloadStep( )
 {
@@ -76,8 +79,9 @@ void DoCustomPreloadStep( )
 
 */
 	p->custom_preload_step = 0;
+#ifdef DOGAME
 	memset( gameboard, 0xff, sizeof( gameboard ) );
-
+#endif
 	//actually spawns
 	p->x = (1<<FIXEDPOINT)/2;
 	p->y = 100*(1<<FIXEDPOINT);
@@ -132,10 +136,12 @@ void GameTick()
 
 void flipcell( int x, int z )
 {
+#ifdef DOGAME
 	if( x >= 0 && x < 8 && z >= 0 && z < 8 )
 	{
 		gameboard[x+z*8] ^= 0xff;
 	}
+#endif
 }
 
 void PlayerClick( uint8_t x, uint8_t y, uint8_t z, uint8_t dir )
@@ -197,6 +203,7 @@ void PlayerUpdate( )
 	uint8_t i;
 	struct Player * p = &Players[playerid];
 
+#ifdef DOGAME
 	int lx, lz;
 	lz = p->update_number & 7;
 	for( lx = 0; lx < 8; lx++ )
@@ -226,6 +233,8 @@ void PlayerUpdate( )
 		GPIO_OUTPUT_SET(GPIO_ID_PIN(0), 1);
 	}
 	
+#endif
+
 	/*
 	SblockInternal( 4, 64, 2, 69, hasset_value?6:14 );
 	SblockInternal( 4, 64, 1, 69, latch_setting_value?6:14 );

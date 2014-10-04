@@ -9,11 +9,11 @@
  * Modification history:
  *     2014/3/12, v1.0 create this file.
 *******************************************************************************/
-#include "ets_sys.h"
-#include "osapi.h"
-#include "driver/uart.h"
+#include <osapi.h>
+#include <ets_sys.h>
+#include <driver/uart.h>
 
-#include "driver/uart_register.h"
+#include <driver/uart_register.h>
 //#include "ssc.h"
 //#include "at.h"
 

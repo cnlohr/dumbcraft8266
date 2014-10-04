@@ -1,129 +1,82 @@
-#Totally borrowed this from mamalala @ the esp8266 forums.
-#Thanks!
+all : image.elf
+FW_FILE_1:=0x00000.bin
+FW_FILE_2:=0x40000.bin
 
-# Output directors to store intermediate compiled files
-# relative to the project directory
-BUILD_BASE	= build
-FW_BASE		= firmware
-
-# base directory of the ESP8266 SDK package, absolute
-SDK_BASE	= C:/sdk
-
-# name for the target project
-TARGET		= esp8266_at
-
-# which modules (subdirectories) of the project to include in compiling
-MODULES		= driver user
-EXTRA_INCDIR	= 
-
-# libraries used in this project, mainly provided by the SDK
-LIBS		= c gcc hal phy net80211 lwip wpa main
-
-# compiler flags using during compilation of source files
-CFLAGS		= -Os -g -O2 -Wpointer-arith -Wundef -Werror -Wl,-EL -fno-inline-functions -nostdlib -mlongcalls -mtext-section-literals  -D__ets__ -DICACHE_FLASH
-
-# linker flags used to generate the main object file
-LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static
-
-# linker script used for the above linkier step
-LD_SCRIPT	= eagle.app.v6.ld
-
-# various paths from the SDK used in this project
-SDK_LIBDIR	= lib
-SDK_LDDIR	= ld
-SDK_INCDIR	= include include/json
-
-# path to the esptool used to generate the final binaries
-# it assumed to have it somwhere in the main SDK directoy tree
-FW_TOOL		= esptool
-
-# actual name of the esptool
-FW_TOOLDIR	= esptool
-
-# we create two different files for uploading into the flash
-# these are the names and options to generate them
-FW_FILE_1	= 0x00000
-FW_FILE_1_ARGS	= -bo $@ -bs .text -bs .data -bs .rodata -bc -ec
-FW_FILE_2	= 0x40000
-FW_FILE_2_ARGS	= -es .irom0.text $@ -ec
-
-# select which tools to use as compiler, librarian and linker
-CC		:= xt-xcc
-AR		:= xt-ar
-LD		:= xt-xcc
+TARGET_OUT:=image.elf
+OBJS:=driver/uart.o \
+	user/dumbcraft.o \
+	user/dumbutils.o \
+	user/user_main.o \
+	user/dumbgame.o \
+	user/mystuff.o \
+	user/util10.o
 
 
+SRCS:=driver/uart.c \
+	user/dumbcraft.c \
+	user/dumbutils.c \
+	user/user_main.c \
+	user/dumbgame.c \
+	user/mystuff.c \
+	user/util10.c
 
-####
-#### no user configurable options below here
-####
-FW_TOOL		:= $(addprefix $(SDK_BASE)/,$(addprefix $(FW_TOOLDIR)/,$(FW_TOOL)))
-SRC_DIR		:= $(MODULES)
-BUILD_DIR	:= $(addprefix $(BUILD_BASE)/,$(MODULES))
+ESPTOOL_PY:=../../esp8266/firmware_staging/esptool/esptool.py
+FW_TOOL:=../../esp8266/esptool/esptool/esptool
+SDK:=../../esp8266/esp8266_sdk_v0.9.1
+XTLIB:=$(SDK)/lib_from_xt/lx106/xtensa-elf/lib
+FOLDERPREFIX=~/esp8266/xtensa-toolchain-build/build-lx106/root/bin
+PREFIX:=$(FOLDERPREFIX)/xtensa-lx106-elf-
+CC:=$(PREFIX)gcc
 
-SDK_LIBDIR	:= $(addprefix $(SDK_BASE)/,$(SDK_LIBDIR))
-SDK_INCDIR	:= $(addprefix -I$(SDK_BASE)/,$(SDK_INCDIR))
+CFLAGS:=-mlongcalls -I$(SDK)/include -Imyclib -Iinclude -Iuser -Os -I$(SDK)/lib_from_xt/lx106/xtensa-elf/include/
+LDFLAGS_CORE:=\
+	$(SDK)/lib/libmain.a \
+	$(SDK)/lib/liblwip.a \
+	$(SDK)/lib/libphy.a \
+	$(SDK)/lib/libssl.a \
+	$(SDK)/lib/libupgrade.a \
+	$(SDK)/lib/libupgrade_ssl.a \
+	$(SDK)/lib/libnet80211.a \
+	$(SDK)/lib/libwpa.a \
+	$(SDK)/lib/libnet80211.a \
+	-L$(SDK)/lib_from_xt/lx106/xtensa-elf/arch/lib \
+	-L$(XTLIB) \
+	-T deps/eagle.app.v6.ld
 
-SRC		:= $(foreach sdir,$(SRC_DIR),$(wildcard $(sdir)/*.c))
-OBJ		:= $(patsubst %.c,$(BUILD_BASE)/%.o,$(SRC))
-LIBS		:= $(addprefix -l,$(LIBS))
-APP_AR		:= $(addprefix $(BUILD_BASE)/,$(TARGET)_app.a)
-TARGET_OUT	:= $(addprefix $(BUILD_BASE)/,$(TARGET).out)
+LDFLAGS:= \
+	$(LDFLAGS_CORE) \
+	$(XTLIB)/xcc/libgcc.a
 
-LD_SCRIPT	:= $(addprefix -T$(SDK_BASE)/$(SDK_LDDIR)/,$(LD_SCRIPT))
 
-INCDIR	:= $(addprefix -I,$(SRC_DIR))
-EXTRA_INCDIR	:= $(addprefix -I,$(EXTRA_INCDIR))
-MODULE_INCDIR	:= $(addsuffix /include,$(INCDIR))
+LINKFLAGS:= \
+	$(LDFLAGS_CORE) \
+	-B$(XTLIB) \
+	-B$(XTLIB)/../arch/lib
 
-FW_FILE_1	:= $(addprefix $(FW_BASE)/,$(FW_FILE_1).bin)
-FW_FILE_2	:= $(addprefix $(FW_BASE)/,$(FW_FILE_2).bin)
+#image.elf : $(OBJS)
+#	$(PREFIX)ld $^ $(LDFLAGS) -o $@
 
-vpath %.c $(SRC_DIR)
+$(TARGET_OUT) : $(SRCS)
+	$(PREFIX)gcc $^ $(CFLAGS) -flto $(LINKFLAGS) -o $@
 
-define compile-objects
-$1/%.o: %.c
-	echo "CC $$<"
-	$(CC) -Iinclude $(INCDIR) $(MODULE_INCDIR) $(EXTRA_INCDIR) $(SDK_INCDIR) $(CFLAGS)  -c $$< -o $$@
-endef
 
-.PHONY: all checkdirs clean
-
-all: checkdirs $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
 
 $(FW_FILE_1): $(TARGET_OUT)
-	echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) $(FW_FILE_1_ARGS)
+	@echo "FW $@"
+	$(FW_TOOL) -eo $(TARGET_OUT) -bo $@ -bs .text -bs .data -bs .rodata -bc -ec
 
 $(FW_FILE_2): $(TARGET_OUT)
-	echo "FW $@"
-	$(FW_TOOL) -eo $(TARGET_OUT) $(FW_FILE_2_ARGS)
+	@echo "FW $@"
+	$(FW_TOOL) -eo $(TARGET_OUT) -es .irom0.text $@ -ec
 
-$(TARGET_OUT): $(APP_AR)
-	echo "LD $@"
-	$(LD) -L$(SDK_LIBDIR) $(LD_SCRIPT) $(LDFLAGS) -Wl,--start-group $(LIBS) $(APP_AR) -Wl,--end-group -o $@
+burn : $(FW_FILE_1) $(FW_FILE_2)
+	($(ESPTOOL_PY) --port /dev/ttyUSB0 write_flash 0x00000 0x00000)||(true)
+	echo "Replug."
+	sleep 2
+	($(ESPTOOL_PY) --port /dev/ttyUSB0 write_flash 0x40000 0x40000)||(true)
 
-$(APP_AR): $(OBJ)
-	echo "AR $@"
-	$(AR) cru $@ $^
 
-checkdirs: $(BUILD_DIR) $(FW_BASE)
+clean :
+	rm -rf user/*.o driver/*.o $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
 
-$(BUILD_DIR):
-	mkdir -p $@
 
-firmware:
-	mkdir -p $@
-
-clean:
-	rm -f $(APP_AR)
-	rm -f $(TARGET_OUT)
-	rm -rf $(BUILD_DIR)
-	rm -rf $(BUILD_BASE)
-
-	
-	rm -f $(FW_FILE_1)
-	rm -f $(FW_FILE_2)
-	rm -rf $(FW_BASE)
-
-$(foreach bdir,$(BUILD_DIR),$(eval $(call compile-objects,$(bdir))))
