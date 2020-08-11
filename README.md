@@ -1,7 +1,7 @@
 dumbcraft8266
 =============
 
-WARNING: THIS IS OUT OF DATE - MAJOR UPDATES ARE AVAILABLE FROM THE MAIN dumbcraft tree. https://github.com/cnlohr/avrcraft
+**WARNING: THIS IS OUT OF DATE - MAJOR UPDATES ARE AVAILABLE FROM THE MAIN dumbcraft tree. https://github.com/cnlohr/avrcraft  - there is actually an ESP8266 port there!!!**
 
 My first stab at a Minecraft-enabled firmware for the ESP8266
 
